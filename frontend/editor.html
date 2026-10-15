@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Code Editor | CodeForge</title>
+
+    <link rel="stylesheet" href="CSS/editor.css">
+
+    <style>
+        :root {
+            --bg: #f5f7fa;
+            --surface: #ffffff;
+            --border: #e1e5eb;
+            --text: #202733;
+            --muted: #697586;
+            --primary: #ffa116;
+            --primary-hover: #e88b00;
+            --green: #16865c;
+            --red: #d83b45;
+            --blue: #2563eb;
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        button, select, textarea {
+            font: inherit;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        /* Navigation */
+
+        .navbar {
+            min-height: 64px;
+            padding: 0 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .brand span {
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .nav-links a {
+            color: #4b5563;
+            font-size: 14px;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-hover);
+        }
+
+        /* Page layout */
+
+        .page-header {
+            padding: 24px 5% 12px;
+        }
+
+        .breadcrumb {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .page-header h1 {
+            font-size: 25px;
+            margin: 0 0 7px;
+        }
+
+        .page-header p {
+            color: var(--muted);
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+            gap: 18px;
+            padding: 12px 5% 35px;
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .panel-header {
+            min-height: 54px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .panel-header h2 {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .panel-body {
+            padding: 20px;
+        }
+
+        /* Problem details */
+
+        .problem-title {
+            font-size: 23px;
+            line-height: 1.4;
+            margin: 0 0 12px;
+            overflow-wrap: anywhere;
+        }
+
+        .problem-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .difficulty {
+            display: inline-block;
+            border-radius: 20px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #e8f7ef;
+            color: var(--green);
+        }
+
+        .difficulty.medium {
+            background: #fff4d6;
+            color: #9a6700;
+        }
+
+        .difficulty.hard {
+            background: #fde8e8;
+            color: var(--red);
+        }
+
+        .problem-id {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .problem-section h3 {
+            margin: 23px 0 10px;
+            font-size: 15px;
+        }
+
+        .problem-section p,
+        .problem-section .problem-text {
+            font-size: 14px;
+            line-height: 1.75;
+            color: #424b57;
+            overflow-wrap: anywhere;
+        }
+
+        .problem-text {
+            white-space: pre-wrap;
+        }
+
+        .loading-message {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .error-message {
+            color: var(--red);
+            background: #fff0f0;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* Editor controls */
+
+        .editor-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .language-select {
+            padding: 9px 12px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            background: white;
+            color: var(--text);
+            min-width: 125px;
+        }
+
+        .language-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .editor-hint {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        #code {
+            display: block;
+            width: 100%;
+            min-height: 390px;
+            resize: vertical;
+            padding: 18px;
+            border: 1px solid #252d3a;
+            border-radius: 9px;
+            background: #171d28;
+            color: #e8edf5;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            tab-size: 4;
+            outline: none;
+        }
+
+        #code:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(255, 161, 22, 0.15);
+        }
+
+        .editor-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 7px;
+            padding: 10px 17px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            transition: background 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #222;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #edf0f4;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #dfe4eb;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Submission result */
+
+        .result-box {
+            margin-top: 22px;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            overflow: hidden;
+        }
+
+        .result-header {
+            background: #f8fafc;
+            padding: 13px 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .result-header h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .result-content {
+            padding: 16px;
+        }
+
+        .result-placeholder {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .verdict {
+            font-size: 17px;
+            font-weight: 800;
+            margin: 0 0 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .verdict.accepted {
+            color: var(--green);
+        }
+
+        .verdict.failed {
+            color: var(--red);
+        }
+
+        .verdict.pending {
+            color: #9a6700;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .result-stat {
+            background: #f7f8fa;
+            border: 1px solid #edf0f4;
+            border-radius: 7px;
+            padding: 11px;
+        }
+
+        .result-stat span {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .result-stat strong {
+            display: block;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .result-message {
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            margin-top: 13px;
+        }
+
+        .result-message.error {
+            color: var(--red);
+        }
+
+        .submission-id {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 12px;
+        }
+
+        .footer {
+            padding: 20px 5%;
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+            border-top: 1px solid var(--border);
+            background: white;
+        }
+
+        /* Responsive layout */
+
+        @media (max-width: 900px) {
+            .editor-container {
+                grid-template-columns: 1fr;
+            }
+
+            #code {
+                min-height: 330px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .navbar {
+                padding: 14px 5%;
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .nav-links {
+                width: 100%;
+                gap: 18px;
+                flex-wrap: wrap;
+            }
+
+            .page-header {
+                padding-top: 20px;
+            }
+
+            .editor-container {
+                padding-left: 4%;
+                padding-right: 4%;
+            }
+
+            .panel-body {
+                padding: 14px;
+            }
+
+            .page-header h1 {
+                font-size: 22px;
+            }
+
+            #code {
+                min-height: 280px;
+                font-size: 12px;
+            }
+
+            .result-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <a class="brand" href="index.html">
+            BYTE<span>BRIDGERS</span>
+        </a>
+
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="problems.html" class="active">Problems</a>
+            <a href="dashboard.html">Dashboard</a>
+            <a href="auth.html" id="loginLink">Login</a>
+        </div>
+    </nav>
+
+    <!-- Page heading -->
+    <header class="page-header">
+        <div class="breadcrumb">
+            <a href="problems.html">Problems</a> / Code Editor
+        </div>
+
+        <h1>Practice. Submit. Improve.</h1>
+        <p>Write your solution and submit it for evaluation.</p>
+    </header>
+
+    <main class="editor-container">
+
+        <!-- Left panel: Problem statement -->
+        <section class="panel problem-section">
+            <div class="panel-header">
+                <h2>Problem Description</h2>
+                <span class="problem-id" id="problemIdLabel">Loading problem...</span>
+            </div>
+
+            <div class="panel-body">
+                <p id="problemLoading" class="loading-message">
+                    Loading problem details from the backend...
+                </p>
+
+                <div id="problemError" class="error-message" hidden></div>
+
+                <div id="problemContent" hidden>
+                    <h1 class="problem-title" id="problemTitle">Problem</h1>
+
+                    <div class="problem-meta">
+                        <span class="difficulty" id="problemDifficulty">Easy</span>
+                        <span class="problem-id" id="problemMetaId"></span>
+                    </div>
+
+                    <h3>Description</h3>
+                    <div class="problem-text" id="problemDescription"></div>
+
+                    <h3>Input</h3>
+                    <div class="problem-text" id="problemInput"></div>
+
+                    <h3>Output</h3>
+                    <div class="problem-text" id="problemOutput"></div>
+
+                    <h3>Constraints</h3>
+                    <div class="problem-text" id="problemConstraints"></div>
+                </div>
+
+                <p class="editor-hint" style="margin-top: 22px;">
+                    Select a problem from the Problems page to load its details.
+                </p>
+            </div>
+        </section>
+
+        <!-- Right panel: Code editor -->
+        <section class="panel coding-section">
+            <div class="panel-header">
+                <h2>Code Editor</h2>
+                <span class="editor-hint">C++17 compatible source</span>
+            </div>
+
+            <div class="panel-body">
+                <div class="editor-toolbar">
+                    <label class="language-label" for="language">
+                        Language
+                        <select id="language" class="language-select">
+                            <option value="CPP" selected>C++</option>
+                        </select>
+                    </label>
+
+                    <span class="editor-hint">
+                        Your code is sent to the backend on submission.
+                    </span>
+                </div>
+
+                <label for="code" class="editor-hint">
+                    Source code
+                </label>
+
+                <textarea
+                    id="code"
+                    spellcheck="false"
+                    autocapitalize="off"
+                    autocomplete="off"
+                    autocorrect="off"
+                    aria-label="C++ source code editor"
+                    placeholder="Write your C++ solution here..."
+                >#include &lt;iostream&gt;
+using namespace std;
+
+int main() {
+    // Write your solution here
+
+    return 0;
+}</textarea>
+
+                <div class="editor-actions">
+                    <span class="editor-hint" id="editorStatus">
+                        Ready to submit
+                    </span>
+
+                    <div class="button-group">
+                        <button type="button" class="btn btn-secondary" id="reset-btn">
+                            Reset Code
+                        </button>
+
+                        <button type="button" class="btn btn-primary" id="submit-btn">
+                            Submit Code
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result area -->
+                <section class="result-box" aria-live="polite">
+                    <div class="result-header">
+                        <h3>Submission Result</h3>
+                        <span class="editor-hint" id="resultStatus">Not submitted</span>
+                    </div>
+
+                    <div class="result-content" id="resultContent">
+                        <p class="result-placeholder" id="resultPlaceholder">
+                            Your verdict, test-case results, execution time, and other
+                            available submission details will appear here after submission.
+                        </p>
+
+                        <div id="resultDetails" hidden>
+                            <p class="verdict" id="verdictText"></p>
+
+                            <div class="result-grid">
+                                <div class="result-stat">
+                                    <span>Passed Tests</span>
+                                    <strong id="passedTests">—</strong>
+                                </div>
+
+                                <div class="result-stat">
+                                    <span>Total Tests</span>
+                                    <strong id="totalTests">—</strong>
+                                </div>
+
+                                <div class="result-stat">
+                                    <span>Execution Time</span>
+                                    <strong id="executionTime">—</strong>
+                                </div>
+
+                                <div class="result-stat">
+                                    <span>Memory Used</span>
+                                    <strong id="memoryUsed">—</strong>
+                                </div>
+                            </div>
+
+                            <p class="result-message" id="resultMessage" hidden></p>
+
+                            <p class="submission-id" id="submissionId"></p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        CodeForge · Coding Practice Platform
+    </footer>
+
+    <!-- Use uppercase JS to match the existing P1 folder structure -->
+    <script src="JS/app.js" defer></script>
+
+</body>
+</html>
