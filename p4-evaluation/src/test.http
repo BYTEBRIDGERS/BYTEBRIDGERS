@@ -1,0 +1,11 @@
+
+POST http://localhost:8080/internal/judge
+Content-Type: application/json
+
+{
+  "submissionId": 5001,
+  "problemId": 101,
+  "language": "Java",
+  "actualOutputs": ["10", "15", "25"],
+  "expectedOutputs": ["10", "15", "25"]
+}
