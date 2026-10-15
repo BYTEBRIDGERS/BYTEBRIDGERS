@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Login | CodeForge</title>
+
+    <link rel="stylesheet" href="CSS/auth.css">
+</head>
+
+<body>
+
+    <main class="auth-container">
+        <section class="auth-box">
+
+            <h1>Welcome Back</h1>
+            <p>Login to continue coding.</p>
+
+            <form id="loginForm">
+
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    autocomplete="username"
+                    maxlength="254"
+                    required
+                >
+
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    autocomplete="current-password"
+                    required
+                >
+
+                <button type="submit" id="loginButton">
+                    Login
+                </button>
+
+                <p
+                    id="message"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                ></p>
+
+            </form>
+
+            <p class="switch-page">
+                Don't have an account?
+                <a href="register.html">Register</a>
+            </p>
+
+            <a class="back-home" href="index.html">
+                &larr; Back to Home
+            </a>
+
+        </section>
+    </main>
+
+    <script>
+        "use strict";
+
+        /* ==========================================
+           1. CONFIGURATION
+        ========================================== */
+
+        const API_BASE_URL = "http://localhost:8080";
+
+        const loginForm = document.getElementById("loginForm");
+        const loginButton = document.getElementById("loginButton");
+        const message = document.getElementById("message");
+
+        let isLoggingIn = false;
+
+
+        /* ==========================================
+           2. MESSAGE HANDLING
+        ========================================== */
+
+        function showMessage(text, type = "error") {
+            message.textContent = text;
+
+            message.dataset.type = type;
+
+            message.style.color =
+                type === "success" ? "#16865c" : "#d83b45";
+        }
+
+
+        /* ==========================================
+           3. RESPONSE PARSING
+        ========================================== */
+
+        async function readResponse(response) {
+            const text = await response.text();
+
+            if (!text) {
+                return {};
+            }
+
+            try {
+                return JSON.parse(text);
+            } catch {
+                return { message: text };
+            }
+        }
+
+        function getErrorMessage(data, status) {
+            if (data.error) {
+                return String(data.error);
+            }
+
+            if (data.message) {
+                return String(data.message);
+            }
+
+            const validationMessages = Object.values(data)
+                .filter(value => typeof value === "string");
+
+            if (validationMessages.length > 0) {
+                return validationMessages.join(", ");
+            }
+
+            if (status === 401) {
+                return "Invalid email or password.";
+            }
+
+            if (status === 403) {
+                return "Login request denied. Check the backend security configuration.";
+            }
+
+            return `Login failed (HTTP ${status}).`;
+        }
+
+
+        /* ==========================================
+           4. LOGIN REQUEST
+        ========================================== */
+
+        loginForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            if (isLoggingIn) {
+                return;
+            }
+
+            const email = document.getElementById("email")
+                .value.trim();
+
+            const password = document.getElementById("password")
+                .value;
+
+            if (!email || !password) {
+                showMessage("Enter both your email and password.");
+                return;
+            }
+
+            isLoggingIn = true;
+
+            loginButton.disabled = true;
+            loginButton.textContent = "Logging in...";
+
+            showMessage("Connecting to the server...", "info");
+
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/api/auth/login`,
+                    {
+                        method: "POST",
+
+                        credentials: "include",
+
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Accept": "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            email: email,
+                            password: password
+                        })
+                    }
+                );
+
+                const data = await readResponse(response);
+
+                if (!response.ok) {
+                    throw new Error(
+                        getErrorMessage(data, response.status)
+                    );
+                }
+
+                /*
+                 * Expected P2 LoginResponse:
+                 * {
+                 *   "message": "...",
+                 *   "userId": 1,
+                 *   "username": "..."
+                 * }
+                 */
+
+                if (
+                    data.userId === null ||
+                    data.userId === undefined ||
+                    !/^\d+$/.test(String(data.userId))
+                ) {
+                    throw new Error(
+                        "The server response is missing a valid user ID."
+                    );
+                }
+
+                if (
+                    typeof data.username !== "string" ||
+                    !data.username.trim()
+                ) {
+                    throw new Error(
+                        "The server response is missing the username."
+                    );
+                }
+
+                /*
+                 * P2 must also establish the authenticated
+                 * Spring Security session on the server.
+                 */
+                sessionStorage.setItem(
+                    "userId",
+                    String(data.userId)
+                );
+
+                sessionStorage.setItem(
+                    "username",
+                    data.username
+                );
+
+                showMessage(
+                    data.message || "Login successful. Redirecting...",
+                    "success"
+                );
+
+                window.location.replace("dashboard.html");
+
+            } catch (error) {
+                console.error("Login failed:", error);
+
+                if (error.message === "Failed to fetch") {
+                    showMessage(
+                        "Cannot connect to the backend. Check that Spring Boot is running and CORS allows your Live Server origin."
+                    );
+                } else {
+                    showMessage(error.message);
+                }
+
+            } finally {
+                isLoggingIn = false;
+
+                loginButton.disabled = false;
+                loginButton.textContent = "Login";
+            }
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Register | CodeForge</title>
+
+    <link rel="stylesheet" href="CSS/auth.css">
+</head>
+
+<body>
+
+    <main class="auth-container">
+        <section class="auth-box">
+
+            <h1>Create Account</h1>
+            <p>Join CodeForge and start coding.</p>
+
+            <form id="registerForm">
+
+                <label for="username">Username</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    placeholder="Enter your username"
+                    minlength="3"
+                    maxlength="50"
+                    autocomplete="username"
+                    required
+                >
+
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    maxlength="254"
+                    autocomplete="email"
+                    required
+                >
+
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Create a password"
+                    minlength="6"
+                    maxlength="100"
+                    autocomplete="new-password"
+                    required
+                >
+
+                <label for="confirmPassword">Confirm Password</label>
+                <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    placeholder="Confirm your password"
+                    minlength="6"
+                    maxlength="100"
+                    autocomplete="new-password"
+                    required
+                >
+
+                <button type="submit" id="registerButton">
+                    Register
+                </button>
+
+                <p
+                    id="message"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                ></p>
+
+            </form>
+
+            <p class="switch-page">
+                Already have an account?
+                <a href="auth.html">Login</a>
+            </p>
+
+            <a class="back-home" href="index.html">
+                &larr; Back to Home
+            </a>
+
+        </section>
+    </main>
+
+    <script>
+        "use strict";
+
+        /* ==========================================
+           1. CONFIGURATION
+        ========================================== */
+
+        const API_BASE_URL = "http://localhost:8080";
+
+        const registerForm = document.getElementById("registerForm");
+        const registerButton = document.getElementById("registerButton");
+        const message = document.getElementById("message");
+
+        let isRegistering = false;
+        let redirecting = false;
+
+
+        /* ==========================================
+           2. MESSAGE HANDLING
+        ========================================== */
+
+        function showMessage(text, type = "error") {
+            message.textContent = text;
+
+            message.style.color =
+                type === "success" ? "#15803d" :
+                type === "info" ? "#475467" :
+                "#b42318";
+        }
+
+
+        /* ==========================================
+           3. RESPONSE PARSING
+        ========================================== */
+
+        async function readResponse(response) {
+            const text = await response.text();
+
+            if (!text) {
+                return {};
+            }
+
+            try {
+                return JSON.parse(text);
+            } catch {
+                return { message: text };
+            }
+        }
+
+        function getErrorMessage(data, status) {
+            if (data.error) {
+                return String(data.error);
+            }
+
+            if (data.message) {
+                return String(data.message);
+            }
+
+            const validationMessages = Object.values(data)
+                .filter(value => typeof value === "string");
+
+            if (validationMessages.length > 0) {
+                return validationMessages.join(", ");
+            }
+
+            return `Registration failed (HTTP ${status}).`;
+        }
+
+
+        /* ==========================================
+           4. REGISTRATION
+        ========================================== */
+
+        registerForm.addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            if (isRegistering || redirecting) {
+                return;
+            }
+
+            const username =
+                document.getElementById("username").value.trim();
+
+            const email =
+                document.getElementById("email").value.trim();
+
+            const password =
+                document.getElementById("password").value;
+
+            const confirmPassword =
+                document.getElementById("confirmPassword").value;
+
+            /* Client-side validation */
+
+            if (username.length < 3 || username.length > 50) {
+                showMessage(
+                    "Username must be between 3 and 50 characters."
+                );
+                return;
+            }
+
+            if (password.length < 6 || password.length > 100) {
+                showMessage(
+                    "Password must be between 6 and 100 characters."
+                );
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showMessage("Passwords do not match.");
+                document.getElementById("confirmPassword").focus();
+                return;
+            }
+
+            if (!email) {
+                showMessage("Enter a valid email address.");
+                document.getElementById("email").focus();
+                return;
+            }
+
+            isRegistering = true;
+
+            registerButton.disabled = true;
+            registerButton.textContent = "Registering...";
+
+            showMessage("Creating your account...", "info");
+
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/api/auth/register`,
+                    {
+                        method: "POST",
+
+                        credentials: "include",
+
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Accept": "application/json"
+                        },
+
+                        /*
+                         * P2 RegisterRequest fields:
+                         * username, email, password
+                         *
+                         * confirmPassword is frontend-only.
+                         */
+                        body: JSON.stringify({
+                            username: username,
+                            email: email,
+                            password: password
+                        })
+                    }
+                );
+
+                const data = await readResponse(response);
+
+                if (!response.ok) {
+                    throw new Error(
+                        getErrorMessage(data, response.status)
+                    );
+                }
+
+                showMessage(
+                    data.message ||
+                    "Registration successful. Redirecting to login...",
+                    "success"
+                );
+
+                registerForm.reset();
+
+                /*
+                 * Registration does not automatically authenticate
+                 * the user in the current P2 implementation.
+                 */
+                redirecting = true;
+
+                window.setTimeout(function () {
+                    window.location.replace("auth.html");
+                }, 1200);
+
+            } catch (error) {
+                console.error("Registration failed:", error);
+
+                showMessage(
+                    error.message === "Failed to fetch"
+                        ? "Cannot connect to P2. Check that Spring Boot is running and CORS allows your Live Server origin."
+                        : error.message
+                );
+
+            } finally {
+                isRegistering = false;
+
+                if (!redirecting) {
+                    registerButton.disabled = false;
+                    registerButton.textContent = "Register";
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>
